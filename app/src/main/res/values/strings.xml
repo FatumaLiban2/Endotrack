@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">EndoTrack</string>
+    <string name="medical_disclaimer_short">EndoTrack is a pre-diagnostic screening and pattern-recognition aid. It does not diagnose endometriosis, prescribe medication, or replace a healthcare professional.</string>
+    <string name="privacy_notice">Your health data stays 100% private on your device in secure local storage. EndoTrack tracks &amp; informs — it never replaces professional medical diagnosis.</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_log">Log</string>
+    <string name="nav_insights">Insights</string>
+    <string name="nav_learn">Learn</string>
+</resources>
