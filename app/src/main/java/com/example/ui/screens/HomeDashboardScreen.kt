@@ -24,8 +24,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.AddCircleOutline
-import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -34,7 +35,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Spa
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -69,7 +69,6 @@ import com.example.ui.components.WarmCard
 import com.example.ui.theme.OnSurfaceEspresso
 import com.example.ui.theme.OnSurfaceVariantMuted
 import com.example.ui.theme.OutlineBorderTint
-import com.example.ui.theme.PainMildTint
 import com.example.ui.theme.PainModerateTint
 import com.example.ui.theme.PrimaryCherry
 import com.example.ui.theme.PrimaryDeep
@@ -346,7 +345,7 @@ fun HomeDashboardScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.TrendingUp,
+                                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                 contentDescription = null,
                                 tint = PrimaryCherry,
                                 modifier = Modifier.size(20.dp)
@@ -685,7 +684,7 @@ fun HomeDashboardScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Assignment,
+                            imageVector = Icons.AutoMirrored.Filled.Assignment,
                             contentDescription = null,
                             tint = Color.White
                         )
