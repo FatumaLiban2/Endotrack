@@ -25,16 +25,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MedicalServices
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SentimentDissatisfied
-import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -303,9 +303,9 @@ fun CreateProfileScreen(
 
                     val goals: List<Pair<String, ImageVector>> = listOf(
                         "Track my symptoms day by day" to Icons.Filled.CalendarToday,
-                        "Spot patterns across my cycle" to Icons.Filled.ShowChart,
+                        "Spot patterns across my cycle" to Icons.AutoMirrored.Filled.ShowChart,
                         "Prepare for doctor's appointments" to Icons.Filled.MedicalServices,
-                        "Understand endometriosis better" to Icons.Filled.MenuBook,
+                        "Understand endometriosis better" to Icons.AutoMirrored.Filled.MenuBook,
                         "See how pain affects my daily life" to Icons.Filled.SentimentDissatisfied
                     )
                     goals.forEach { (goal, icon) ->

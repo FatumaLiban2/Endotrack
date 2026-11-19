@@ -23,16 +23,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Insights
-import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -70,8 +70,6 @@ import com.example.ui.theme.SurfaceCanvasBlush
 import com.example.ui.theme.SurfaceContainerLow
 
 object EndoRoutes {
-    const val LANDING = "landing"
-    const val AUTH = "auth"
     const val PROFILE = "profile"
     const val HOME = "home"
     const val LOG = "log"
@@ -290,7 +288,9 @@ fun EndoBottomNavBar(
                 Quad(EndoRoutes.HOME, "Home", Icons.Filled.Home, Icons.Outlined.Home),
                 Quad(EndoRoutes.LOG, "Log", Icons.Filled.CalendarMonth, Icons.Outlined.CalendarMonth),
                 Quad(EndoRoutes.INSIGHTS, "Insights", Icons.Filled.Insights, Icons.Outlined.Insights),
-                Quad(EndoRoutes.LEARN, "Learn", Icons.Filled.MenuBook, Icons.Outlined.MenuBook)
+                Quad(EndoRoutes.LEARN, "Learn", Icons.AutoMirrored.Filled.MenuBook,
+                    Icons.AutoMirrored.Outlined.MenuBook
+                )
             )
             items.forEach { (route, label, filledIcon, outlinedIcon) ->
                 val selected = currentRoute == route
