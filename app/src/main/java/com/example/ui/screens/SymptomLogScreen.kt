@@ -35,7 +35,6 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalHospital
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
@@ -54,8 +53,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -89,7 +86,6 @@ import com.example.ui.theme.SurfaceCanvasBlush
 import com.example.ui.theme.SurfaceContainerLow
 import com.example.ui.viewmodel.LogDraftState
 import com.example.util.DateUtil
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -288,20 +284,32 @@ fun SymptomLogScreen(
                 }
             }
 
-            // Overall Pain Level Card (0-10 nodes + Slider)
+            // Overall Pain Level Card
             WarmCard {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Overall Pain Level",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = OnSurfaceEspresso,
-                            fontWeight = FontWeight.Bold
+                    Column {
+                        Text(
+                            text = "Pain level",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = OnSurfaceEspresso,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
-                    )
+                        val severityTitle = when {
+                            draft.painLevel == 0 -> "No pain"
+                            draft.painLevel <= 3 -> "Mild"
+                            draft.painLevel <= 6 -> "Moderate"
+                            else -> "Severe"
+                        }
+                        Text(
+                            text = severityTitle,
+                            style = MaterialTheme.typography.bodySmall.copy(color = SecondaryDeepCherry)
+                        )
+                    }
                     Surface(shape = CircleShape, color = SurfaceCanvasBlush) {
                         Text(
                             text = "${draft.painLevel} / 10",
@@ -314,47 +322,8 @@ fun SymptomLogScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                val (severityTitle, severityDesc) = when {
-                    draft.painLevel == 0 -> "No Pain" to "Comfortable day with no pelvic or systemic pain."
-                    draft.painLevel <= 3 -> "Mild Discomfort" to "Noticeable ache, manageable without halting daily activities."
-                    draft.painLevel <= 6 -> "Moderate / Severe Discomfort" to "Interferes significantly with daily tasks; requires pausing or heat/medication."
-                    else -> "Incapacitating / Severe Flare" to "Severe cramping or stabbing pain limiting mobility, sleep, or work."
-                }
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = SurfaceContainerLow,
-                    border = BorderStroke(1.dp, OutlineBorderTint),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.WarningAmber,
-                            contentDescription = null,
-                            tint = PrimaryCherry,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = severityTitle,
-                                style = MaterialTheme.typography.labelLarge.copy(color = SecondaryDeepCherry)
-                            )
-                            Text(
-                                text = severityDesc,
-                                style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // 0-10 Tactile Circular Nodes
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -386,44 +355,6 @@ fun SymptomLogScreen(
                         }
                     }
                 }
-
-                Slider(
-                    value = draft.painLevel.toFloat(),
-                    onValueChange = { onPainLevelChange(it.roundToInt()) },
-                    valueRange = 0f..10f,
-                    steps = 9,
-                    colors = SliderDefaults.colors(
-                        thumbColor = PrimaryCherry,
-                        activeTrackColor = PrimaryCherry,
-                        inactiveTrackColor = SurfaceCanvasBlush
-                    ),
-                    modifier = Modifier.testTag("pain_slider")
-                )
-
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(0 to "0 None", 3 to "3 Mild", 6 to "6 Mod / Severe", 9 to "9 Very severe").forEach { (valNum, label) ->
-                        val selected = draft.painLevel == valNum
-                        FilterChip(
-                            selected = selected,
-                            onClick = { onPainLevelChange(valNum) },
-                            label = { Text(label) },
-                            shape = CircleShape,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = SecondaryDeepCherry,
-                                selectedLabelColor = Color.White
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true,
-                                selected = selected,
-                                borderColor = OutlineBorderTint,
-                                selectedBorderColor = SecondaryDeepCherry
-                            )
-                        )
-                    }
-                }
             }
 
             // Period Today & Flow Volume Selector
@@ -453,10 +384,6 @@ fun SymptomLogScreen(
                                 text = "Period today?",
                                 style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
                             )
-                            Text(
-                                text = "Menstrual bleeding or active flow",
-                                style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
-                            )
                         }
                     }
                     Switch(
@@ -475,20 +402,6 @@ fun SymptomLogScreen(
                 AnimatedVisibility(visible = draft.hasPeriod) {
                     Column {
                         Spacer(modifier = Modifier.height(14.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Flow volume:",
-                                style = MaterialTheme.typography.labelMedium.copy(color = OnSurfaceEspresso)
-                            )
-                            Text(
-                                text = "Spotting to Heavy",
-                                style = MaterialTheme.typography.labelSmall.copy(color = PrimaryCherry)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -533,7 +446,7 @@ fun SymptomLogScreen(
                 }
             }
 
-            // Over-the-Counter (OTC) Pain Medication Tracker (masked symptoms)
+            // Over-the-Counter (OTC) Pain Medication Tracker
             WarmCard {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -559,10 +472,6 @@ fun SymptomLogScreen(
                             Text(
                                 text = "OTC Pain Medication",
                                 style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
-                            )
-                            Text(
-                                text = "Track masked or NSAID-refractory pain",
-                                style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
                             )
                         }
                     }
@@ -650,7 +559,7 @@ fun SymptomLogScreen(
                 }
             }
 
-            // 58 Clinical Model Features Card
+            // Symptoms Card
             WarmCard {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -659,20 +568,16 @@ fun SymptomLogScreen(
                 ) {
                     Column {
                         Text(
-                            text = "58 Model Symptoms",
+                            text = "Symptoms",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = OnSurfaceEspresso,
                                 fontWeight = FontWeight.Bold
                             )
                         )
-                        Text(
-                            text = "Tap to toggle symptoms in the Logistic Regression vector",
-                            style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
-                        )
                     }
                     Surface(shape = CircleShape, color = SurfaceCanvasBlush) {
                         Text(
-                            text = "${draft.selectedSymptoms.size} / 58",
+                            text = "${draft.selectedSymptoms.size} selected",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 color = SecondaryDeepCherry,
                                 fontWeight = FontWeight.Bold
@@ -749,7 +654,7 @@ fun SymptomLogScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 6 Expandable Category Cards (A through F) covering all 58 features
+                // 6 Expandable Category Cards (A through F)
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SymptomCategory.entries.forEach { category ->
                         val allInCat = EndoLogisticRegressionModel.CATEGORY_FEATURES[category].orEmpty()
@@ -799,7 +704,7 @@ fun SymptomLogScreen(
                                                     style = MaterialTheme.typography.labelLarge.copy(color = OnSurfaceEspresso)
                                                 )
                                                 Text(
-                                                    text = "${allInCat.size} clinical features",
+                                                    text = "${allInCat.size} symptoms",
                                                     style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
                                                 )
                                             }
@@ -856,10 +761,6 @@ fun SymptomLogScreen(
                     text = "Impact on your day",
                     style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
                 )
-                Text(
-                    text = "Functional metrics included in your clinician triage report.",
-                    style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
-                )
                 Spacer(modifier = Modifier.height(10.dp))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -899,19 +800,10 @@ fun SymptomLogScreen(
 
             // Daily Notes & Triggers
             WarmCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Daily Notes & Triggers",
-                        style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
-                    )
-                    Text(
-                        text = "Optional",
-                        style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
-                    )
-                }
+                Text(
+                    text = "Notes & triggers",
+                    style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = draft.notes,
@@ -976,43 +868,22 @@ fun SymptomLogScreen(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (draft.isSaving) "Running Model..." else "Save Log",
+                        text = if (draft.isSaving) "Saving..." else "Save Log",
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (draft.existingLogId != null) {
-                    TextButton(onClick = onDeleteLog) {
-                        Icon(
-                            imageVector = Icons.Filled.DeleteOutline,
-                            contentDescription = "Delete entry",
-                            tint = OnSurfaceVariantMuted,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Delete this entry", color = OnSurfaceVariantMuted)
-                    }
-                } else {
-                    Spacer(modifier = Modifier.width(1.dp))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            if (draft.existingLogId != null) {
+                TextButton(onClick = onDeleteLog) {
                     Icon(
-                        imageVector = Icons.Filled.Lock,
-                        contentDescription = null,
+                        imageVector = Icons.Filled.DeleteOutline,
+                        contentDescription = "Delete entry",
                         tint = OnSurfaceVariantMuted,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Saved locally to device",
-                        style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
-                    )
+                    Text("Delete this entry", color = OnSurfaceVariantMuted)
                 }
             }
 
@@ -1066,25 +937,16 @@ private fun SavedInferenceFeedbackDialog(
     onDismiss: () -> Unit,
     onViewInsights: () -> Unit
 ) {
-    val dailyPct = (riskResult.latestDailyProbability * 100.0).toInt()
     val multiPct = (riskResult.aggregatedProbability * 100.0).toInt()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Color.White,
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Filled.Psychology,
-                    contentDescription = null,
-                    tint = PrimaryCherry
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Log Saved & Model Updated",
-                    style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
-                )
-            }
+            Text(
+                text = "Log saved",
+                style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
+            )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1093,23 +955,11 @@ private fun SavedInferenceFeedbackDialog(
                     probability = riskResult.aggregatedProbability
                 )
                 Text(
-                    text = "Daily Log Vector Score: $dailyPct%\nMulti-Cycle Aggregated Score: $multiPct% (${riskResult.totalLogsAnalyzed} logs across ${riskResult.cyclesAnalyzed} cycle(s))",
+                    text = "Pattern score: $multiPct% from ${riskResult.totalLogsAnalyzed} logs.",
                     style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceEspresso)
                 )
-                if (riskResult.topDrivers.isNotEmpty()) {
-                    Text(
-                        text = "Top Model Contributors:",
-                        style = MaterialTheme.typography.labelMedium.copy(color = SecondaryDeepCherry)
-                    )
-                    riskResult.topDrivers.forEach { driver ->
-                        Text(
-                            text = "• ${driver.featureName} (+${"%.2f".format(driver.contribution)})",
-                            style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
-                        )
-                    }
-                }
                 Text(
-                    text = "Pre-diagnostic pattern screening only — not a medical diagnosis.",
+                    text = "Pattern screening only, not a medical diagnosis.",
                     style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
                 )
             }

@@ -7,8 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,20 +20,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Assignment
-import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -88,7 +78,6 @@ import com.example.ui.theme.SurfaceContainerLow
 import com.example.util.ClinicianPdfExporter
 import com.example.util.DateUtil
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun InsightsReportScreen(
     user: UserEntity,
@@ -115,40 +104,28 @@ fun InsightsReportScreen(
         ClinicianPdfExporter.computeMetrics(logs, timeframeDays)
     }
 
-    val chartDays = remember(timeframeDays, today) {
-        val displaySpan = when (timeframeDays) {
-            14 -> 14
-            30 -> 14
-            else -> 14
-        }
-        ((today - (displaySpan - 1))..today).toList()
+    val chartDays = remember(today) {
+        ((today - 13)..today).toList()
     }
     val logsByDay = remember(logs) { logs.associateBy { it.epochDay } }
     val peakLog = remember(windowLogs) { windowLogs.maxByOrNull { it.painLevel } }
     var selectedChartDay by rememberSaveable { mutableStateOf<Long?>(null) }
-    var showRecentLogs by rememberSaveable { mutableStateOf(true) }
+    var showRecentLogs by rememberSaveable { mutableStateOf(false) }
+    var showCalibration by rememberSaveable { mutableStateOf(false) }
 
-    val periodPainAvg = remember(windowLogs) {
-        val p = windowLogs.filter { it.hasPeriod }
-        if (p.isEmpty()) 0.0 else p.map { it.painLevel }.average()
-    }
-    val nonPeriodPainAvg = remember(windowLogs) {
-        val np = windowLogs.filter { !it.hasPeriod }
-        if (np.isEmpty()) 0.0 else np.map { it.painLevel }.average()
-    }
+    val periodLogs = remember(windowLogs) { windowLogs.filter { it.hasPeriod } }
+    val nonPeriodLogs = remember(windowLogs) { windowLogs.filter { !it.hasPeriod } }
+    val periodPainAvg = if (periodLogs.isEmpty()) 0.0 else periodLogs.map { it.painLevel }.average()
+    val nonPeriodPainAvg = if (nonPeriodLogs.isEmpty()) 0.0 else nonPeriodLogs.map { it.painLevel }.average()
 
     val phaseAverages = remember(logs, user) {
         val grouped = logs.groupBy { log ->
             DateUtil.cyclePhaseForDay(log.cycleDay, user.cycleLengthDays, user.periodDurationDays)
         }
-        listOf(
-            Triple("Menstrual phase", "Days 1–${user.periodDurationDays}", grouped["Menstrual phase"].orEmpty()),
-            Triple("Follicular phase", "Days ${user.periodDurationDays + 1}–${(user.cycleLengthDays / 2) - 1}", grouped["Follicular phase"].orEmpty()),
-            Triple("Ovulatory phase", "Mid-cycle", grouped["Ovulatory phase"].orEmpty()),
-            Triple("Luteal phase", "Pre-period", grouped["Luteal phase"].orEmpty())
-        ).map { (phase, rangeLabel, phaseLogs) ->
+        listOf("Menstrual phase", "Follicular phase", "Ovulatory phase", "Luteal phase").map { phase ->
+            val phaseLogs = grouped[phase].orEmpty()
             val avg = if (phaseLogs.isEmpty()) 0.0 else phaseLogs.map { it.painLevel }.average()
-            Triple(phase.replace(" phase", ""), rangeLabel, avg)
+            phase.replace(" phase", "") to avg
         }
     }
 
@@ -162,27 +139,12 @@ fun InsightsReportScreen(
             .padding(vertical = 16.dp)
     ) {
         CenteredMaxWidthColumn {
-            // Timeframe Header & Selector Pills matching Stitch Insights
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Timeframe",
-                    style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
-                )
-                Text(
-                    text = "${DateUtil.formatShortDate(cutoff)} – ${DateUtil.formatShortDate(today)}",
-                    style = MaterialTheme.typography.labelSmall.copy(color = PrimaryCherry)
-                )
-            }
-
+            // Timeframe pills
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf(14 to "Last 14 Days", 30 to "Last 30 Days", 90 to "Last 90 Days").forEach { (days, label) ->
+                listOf(14 to "14 days", 30 to "30 days", 90 to "90 days").forEach { (days, label) ->
                     val selected = timeframeDays == days
                     Surface(
                         onClick = { onSelectTimeframe(days) },
@@ -212,45 +174,19 @@ fun InsightsReportScreen(
                 }
             }
 
-            // Longitudinal Pain Trend Chart Card matching Stitch Insights
+            // Pain trend chart
             WarmCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "${timeframeDays}-Day Pain Trend",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = OnSurfaceEspresso,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Text(
-                            text = "Scale 0 (None) to 10 (Incapacitating)",
-                            style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
-                        )
-                    }
-                    Surface(shape = CircleShape, color = SurfaceContainerLow) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.WaterDrop,
-                                contentDescription = null,
-                                tint = PrimaryCherry,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Flow marker",
-                                style = MaterialTheme.typography.labelSmall.copy(color = SecondaryDeepCherry)
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = "Pain trend",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = OnSurfaceEspresso,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Text(
+                    text = "${DateUtil.formatShortDate(cutoff)} – ${DateUtil.formatShortDate(today)}",
+                    style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
+                )
 
                 if (peakLog != null) {
                     Spacer(modifier = Modifier.height(12.dp))
@@ -298,7 +234,7 @@ fun InsightsReportScreen(
                             }
                             Surface(shape = CircleShape, color = Color.White) {
                                 Text(
-                                    text = if (inspectLog.id == peakLog.id) "Peak Day" else "Selected",
+                                    text = if (inspectLog.id == peakLog.id) "Peak day" else "Selected",
                                     style = MaterialTheme.typography.labelSmall.copy(color = SecondaryDeepCherry),
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
@@ -309,7 +245,6 @@ fun InsightsReportScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Custom Compose Canvas Bar Chart with flow droplet indicators
                 val barCount = chartDays.size
                 Box(
                     modifier = Modifier
@@ -393,17 +328,18 @@ fun InsightsReportScreen(
                     LegendItem(color = PainMildTint, label = "0–3 Mild")
                     LegendItem(color = PainModerateTint, label = "4–6 Moderate")
                     LegendItem(color = PainSevereTint, label = "7–10 Severe")
+                    LegendItem(color = PrimaryCherry, label = "Period")
                 }
             }
 
-            // KPI Summary Row
+            // KPI row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 WarmCard(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Average Pain",
+                        text = "Average pain",
                         style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -429,7 +365,7 @@ fun InsightsReportScreen(
 
                 WarmCard(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Logged Days",
+                        text = "Days logged",
                         style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -449,37 +385,27 @@ fun InsightsReportScreen(
                     }
                     val consistency = ((windowLogs.size * 100.0) / timeframeDays).toInt().coerceAtMost(100)
                     Text(
-                        text = "$consistency% consistency",
+                        text = "$consistency%",
                         style = MaterialTheme.typography.labelSmall.copy(color = SecondaryDeepCherry)
                     )
                 }
             }
 
-            // Top Reported Symptom banner
+            // Top symptom + honest period comparison
             val topSymptom = metrics.topSymptoms.firstOrNull()
-            WarmCard(containerColor = Color.White) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(SurfaceCanvasBlush),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.FavoriteBorder,
-                            contentDescription = null,
-                            tint = PrimaryCherry
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
+            WarmCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "TOP REPORTED SYMPTOM",
+                            text = "Top symptom",
                             style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
                         )
                         Text(
-                            text = topSymptom?.first ?: "Log symptoms to surface recurring patterns",
+                            text = topSymptom?.first ?: "Log symptoms to see patterns",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = OnSurfaceEspresso,
                                 fontWeight = FontWeight.Bold
@@ -502,66 +428,27 @@ fun InsightsReportScreen(
                         }
                     }
                 }
-            }
 
-            // Cycle Pattern Identified Card
-            WarmCard(containerColor = SurfaceContainerLow) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(SecondaryDeepCherry),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Lightbulb,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
+                if (periodLogs.isNotEmpty() && nonPeriodLogs.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    val periodText = "%.1f".format(periodPainAvg)
+                    val nonPeriodText = "%.1f".format(nonPeriodPainAvg)
+                    val comparison = when {
+                        periodPainAvg - nonPeriodPainAvg >= 1.0 ->
+                            "Pain is higher on period days ($periodText/10) than other days ($nonPeriodText/10)."
+                        nonPeriodPainAvg - periodPainAvg >= 1.0 ->
+                            "Pain is higher on non-period days ($nonPeriodText/10) than period days ($periodText/10)."
+                        else ->
+                            "Pain is similar on period days ($periodText/10) and other days ($nonPeriodText/10)."
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Cycle Pattern Identified",
-                        style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso),
-                        modifier = Modifier.weight(1f)
+                        text = comparison,
+                        style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceEspresso)
                     )
-                    Surface(shape = CircleShape, color = Color.White) {
-                        Text(
-                            text = "Entry Trend",
-                            style = MaterialTheme.typography.labelSmall.copy(color = SecondaryDeepCherry),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "Your pain is significantly higher during menstrual bleeding days (averaging ${"%.1f".format(periodPainAvg)}/10 vs non-period days average ${"%.1f".format(nonPeriodPainAvg)}/10).",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = OnSurfaceEspresso)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(shape = RoundedCornerShape(12.dp), color = Color.White) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Info,
-                            contentDescription = null,
-                            tint = OnSurfaceVariantMuted,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Summarizes your personal entries and does not constitute a medical diagnosis.",
-                            style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
-                        )
-                    }
                 }
             }
 
-            // Cycle Phase Breakdown (4 cards)
+            // Cycle phase breakdown
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -569,243 +456,128 @@ fun InsightsReportScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Cycle Phase Breakdown",
+                        text = "Pain by cycle phase",
                         style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
                     )
                     Text(
-                        text = "${cycleSummaries.size} cycle(s) tracked",
+                        text = "${cycleSummaries.size} cycle(s)",
                         style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
                     )
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    phaseAverages.chunked(2).forEach { pair ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            pair.forEach { (phase, range, avg) ->
-                                WarmCard(modifier = Modifier.weight(1f)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = phase,
-                                            style = MaterialTheme.typography.labelLarge.copy(
-                                                color = PrimaryCherry,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        )
-                                        Text(
-                                            text = range,
-                                            style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Row(verticalAlignment = Alignment.Bottom) {
-                                        Text(
-                                            text = "Avg ${"%.1f".format(avg)}",
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                color = OnSurfaceEspresso,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        )
-                                        Text(
-                                            text = " /10",
-                                            style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    LinearProgressIndicator(
-                                        progress = { (avg / 10.0).toFloat().coerceIn(0f, 1f) },
+                phaseAverages.chunked(2).forEach { pair ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        pair.forEach { (phase, avg) ->
+                            WarmCard(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = phase,
+                                    style = MaterialTheme.typography.labelLarge.copy(
                                         color = PrimaryCherry,
-                                        trackColor = SurfaceCanvasBlush,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .clip(CircleShape)
+                                        fontWeight = FontWeight.Bold
                                     )
-                                }
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Avg ${"%.1f".format(avg)}",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        color = OnSurfaceEspresso,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = { (avg / 10.0).toFloat().coerceIn(0f, 1f) },
+                                    color = PrimaryCherry,
+                                    trackColor = SurfaceCanvasBlush,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(CircleShape)
+                                )
                             }
                         }
                     }
                 }
             }
 
-            // On-Device Logistic Regression & SGD Incremental Calibration Card
-            WarmCard(modifier = Modifier.testTag("insights_calibration_card")) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(SurfaceCanvasBlush),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Tune,
-                                contentDescription = null,
-                                tint = SecondaryDeepCherry
+            // What is driving the pattern signal (moved here from Home)
+            if (riskResult.topDrivers.isNotEmpty()) {
+                WarmCard(modifier = Modifier.testTag("insights_drivers_card")) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "What drives your signal",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = OnSurfaceEspresso,
+                                fontWeight = FontWeight.Bold
                             )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "On-Device SGD Calibration",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = OnSurfaceEspresso,
-                                    fontWeight = FontWeight.Bold
+                        )
+                        RiskTierPill(
+                            riskTier = riskResult.riskTier,
+                            probability = riskResult.aggregatedProbability
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    val maxContribution = riskResult.topDrivers.maxOf { it.contribution }.coerceAtLeast(0.5)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        riskResult.topDrivers.forEach { driver ->
+                            Column {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = driver.featureName,
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = OnSurfaceEspresso,
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "+${"%.2f".format(driver.contribution)}",
+                                        style = MaterialTheme.typography.labelSmall.copy(color = PrimaryCherry)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(3.dp))
+                                LinearProgressIndicator(
+                                    progress = { (driver.contribution / maxContribution).toFloat().coerceIn(0.1f, 1f) },
+                                    color = PrimaryCherry,
+                                    trackColor = SurfaceCanvasBlush,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(CircleShape)
                                 )
-                            )
-                            Text(
-                                text = weightsEntity?.lastCalibrationOutcome ?: "Clinical Baseline (886-Patient Model)",
-                                style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
-                            )
+                            }
                         }
-                    }
-                    RiskTierPill(
-                        riskTier = riskResult.riskTier,
-                        probability = riskResult.aggregatedProbability
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "Record a clinician-verified diagnostic outcome to locally fine-tune your 58 model weights via Stochastic Gradient Descent (w[i] -= lr × (ŷ - y) × x[i]).",
-                    style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = { onCalibrateOutcome(true) },
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = PrimaryCherry,
-                            contentColor = Color.White
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("calibrate_confirmed_button")
-                    ) {
-                        Text(
-                            text = "Confirmed Endo (+1)",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                    OutlinedButton(
-                        onClick = { onCalibrateOutcome(false) },
-                        shape = CircleShape,
-                        border = BorderStroke(1.dp, OutlineBorderTint),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = SurfaceContainerLow,
-                            contentColor = RiskLowText
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("calibrate_ruled_out_button")
-                    ) {
-                        Text(
-                            text = "Ruled Out (0)",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-
-                val updateCount = weightsEntity?.calibrationUpdatesCount ?: 0
-                if (updateCount > 0) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextButton(
-                        onClick = onResetWeights,
-                        modifier = Modifier
-                            .align(Alignment.End)
-                            .testTag("reset_baseline_weights_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.RestartAlt,
-                            contentDescription = null,
-                            tint = SecondaryDeepCherry,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Reset to Clinical Baseline Weights ($updateCount update${if (updateCount > 1) "s" else ""})",
-                            color = SecondaryDeepCherry,
-                            style = MaterialTheme.typography.labelSmall
-                        )
                     }
                 }
             }
 
-            // Clinician-Facing Appointment Triage Summary & PDF Export Card matching Stitch Insights
+            // Doctor report
             WarmCard(modifier = Modifier.testTag("insights_doctor_report_card")) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(SecondaryDeepCherry),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Assignment,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "Appointment Triage Summary",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = OnSurfaceEspresso,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            Text(
-                                text = "Clinician-ready PDF export",
-                                style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
-                            )
-                        }
-                    }
-                    Surface(shape = CircleShape, color = SurfaceCanvasBlush) {
-                        Text(
-                            text = "Ready",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = SecondaryDeepCherry,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    text = "1. What do you want to tell your doctor?",
-                    style = MaterialTheme.typography.labelLarge.copy(color = OnSurfaceEspresso)
+                    text = "Doctor report",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = OnSurfaceEspresso,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
                     value = clinicianNote,
                     onValueChange = onClinicianNoteChange,
+                    label = { Text("What do you want to tell your doctor?") },
                     minLines = 2,
                     maxLines = 4,
                     shape = RoundedCornerShape(16.dp),
@@ -817,165 +589,15 @@ fun InsightsReportScreen(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
-
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "2. Top Priority Drivers for Visit",
-                    style = MaterialTheme.typography.labelLarge.copy(color = OnSurfaceEspresso)
+                    text = "Last $timeframeDays days: peak pain ${metrics.peakPain}/10, " +
+                            "${metrics.severeDaysCount} days at 6 or above, " +
+                            "${metrics.impactDaysCount} days affecting daily life, " +
+                            "${metrics.otcNonResponseCount}/${metrics.otcAttempts} pain-relief attempts without relief.",
+                    style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val topics = riskResult.topDrivers.map { it.featureName }
-                        .ifEmpty { listOf("Cycle Pain Pattern", "NSAID Response", "Baseline History") }
-                    topics.forEach { topic ->
-                        Surface(
-                            shape = CircleShape,
-                            color = SurfaceCanvasBlush,
-                            border = BorderStroke(1.dp, OutlineBorderTint)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.CheckCircle,
-                                    contentDescription = null,
-                                    tint = PrimaryCherry,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = topic,
-                                    style = MaterialTheme.typography.labelSmall.copy(color = SecondaryDeepCherry)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = SurfaceContainerLow,
-                    border = BorderStroke(1.dp, OutlineBorderTint),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "${timeframeDays}-Day Clinical Summary",
-                                style = MaterialTheme.typography.titleMedium.copy(color = PrimaryCherry)
-                            )
-                            Text(
-                                text = "${metrics.otcNonResponseCount}/${metrics.otcAttempts} OTC unrelieved",
-                                style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = Color.White,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(
-                                        text = "Peak Pain Reported",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
-                                    )
-                                    Text(
-                                        text = "${metrics.peakPain} / 10",
-                                        style = MaterialTheme.typography.headlineSmall.copy(
-                                            color = PrimaryCherry,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                    Text(
-                                        text = "${metrics.severeDaysCount} days pain ≥ 6",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
-                                    )
-                                }
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = Color.White,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(
-                                        text = "Quality of Life Impact",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
-                                    )
-                                    Text(
-                                        text = "${metrics.impactDaysCount} Days",
-                                        style = MaterialTheme.typography.headlineSmall.copy(
-                                            color = OnSurfaceEspresso,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                    Text(
-                                        text = "${metrics.periodDays} bleeding days",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
-                                    )
-                                }
-                            }
-                        }
-
-                        if (metrics.topSymptoms.isNotEmpty()) {
-                            Text(
-                                text = "Symptom Distribution (${timeframeDays} days)",
-                                style = MaterialTheme.typography.labelMedium.copy(color = OnSurfaceEspresso)
-                            )
-                            val maxCount = metrics.topSymptoms.maxOf { it.second }.coerceAtLeast(1)
-                            metrics.topSymptoms.take(4).forEach { (symptom, count) ->
-                                Column {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = symptom,
-                                            style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceEspresso),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        Text(
-                                            text = "$count logs",
-                                            style = MaterialTheme.typography.labelSmall.copy(color = SecondaryDeepCherry)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    LinearProgressIndicator(
-                                        progress = { (count.toFloat() / maxCount.toFloat()).coerceIn(0.1f, 1f) },
-                                        color = PrimaryCherry,
-                                        trackColor = SurfaceCanvasBlush,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(5.dp)
-                                            .clip(CircleShape)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
+                Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = onExportPdf,
                     shape = CircleShape,
@@ -995,39 +617,13 @@ fun InsightsReportScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Export / Share Doctor Report (PDF)",
+                        text = "Export / share report (PDF)",
                         style = MaterialTheme.typography.labelLarge
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedButton(
-                    onClick = onExportPdf,
-                    shape = CircleShape,
-                    border = BorderStroke(1.dp, OutlineBorderTint),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = SecondaryDeepCherry
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Share,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Open Android Share Sheet",
-                        style = MaterialTheme.typography.labelMedium
                     )
                 }
             }
 
-            // Recent Daily Logs expandable list
+            // Recent daily logs (collapsed by default)
             WarmCard {
                 Row(
                     modifier = Modifier
@@ -1036,16 +632,10 @@ fun InsightsReportScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = "Recent Daily Logs",
-                            style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
-                        )
-                        Text(
-                            text = "Tap any day to review or edit its 58 symptoms",
-                            style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
-                        )
-                    }
+                    Text(
+                        text = "Recent logs",
+                        style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
+                    )
                     Icon(
                         imageVector = if (showRecentLogs) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                         contentDescription = "Toggle recent logs",
@@ -1089,22 +679,16 @@ fun InsightsReportScreen(
                                                 text = DateUtil.formatShortDate(log.epochDay),
                                                 style = MaterialTheme.typography.labelLarge.copy(color = OnSurfaceEspresso)
                                             )
-                                            if (log.hasPeriod) {
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = "• Day ${log.cycleDay} Period",
-                                                    style = MaterialTheme.typography.labelSmall.copy(color = PrimaryCherry)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = if (log.hasPeriod) "• Day ${log.cycleDay} Period" else "• Cycle Day ${log.cycleDay}",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = if (log.hasPeriod) PrimaryCherry else OnSurfaceVariantMuted
                                                 )
-                                            } else {
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = "• Cycle Day ${log.cycleDay}",
-                                                    style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted)
-                                                )
-                                            }
+                                            )
                                         }
                                         Text(
-                                            text = log.notes.ifBlank { "Tap to edit logged symptoms" },
+                                            text = log.notes.ifBlank { "Tap to edit" },
                                             style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
@@ -1122,6 +706,125 @@ fun InsightsReportScreen(
                     }
                 }
             }
+
+            // Model calibration (advanced, collapsed by default)
+            WarmCard(modifier = Modifier.testTag("insights_calibration_card")) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showCalibration = !showCalibration },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Tune,
+                            contentDescription = null,
+                            tint = SecondaryDeepCherry,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Advanced: calibrate model",
+                            style = MaterialTheme.typography.titleMedium.copy(color = OnSurfaceEspresso)
+                        )
+                    }
+                    Icon(
+                        imageVector = if (showCalibration) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = "Toggle calibration",
+                        tint = SecondaryDeepCherry
+                    )
+                }
+
+                if (showCalibration) {
+                    val updateCount = weightsEntity?.calibrationUpdatesCount ?: 0
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = if (updateCount > 0) {
+                            weightsEntity?.lastCalibrationOutcome ?: "Personalized model"
+                        } else {
+                            "Using the baseline model"
+                        },
+                        style = MaterialTheme.typography.labelMedium.copy(color = SecondaryDeepCherry)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "If a doctor has confirmed or ruled out endometriosis for you, record it here to adjust the model to your own data. This stays on your device.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = OnSurfaceVariantMuted)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { onCalibrateOutcome(true) },
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PrimaryCherry,
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("calibrate_confirmed_button")
+                        ) {
+                            Text(
+                                text = "Confirmed",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { onCalibrateOutcome(false) },
+                            shape = CircleShape,
+                            border = BorderStroke(1.dp, OutlineBorderTint),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = SurfaceContainerLow,
+                                contentColor = RiskLowText
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("calibrate_ruled_out_button")
+                        ) {
+                            Text(
+                                text = "Ruled out",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
+
+                    if (updateCount > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = onResetWeights,
+                            modifier = Modifier
+                                .align(Alignment.End)
+                                .testTag("reset_baseline_weights_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.RestartAlt,
+                                contentDescription = null,
+                                tint = SecondaryDeepCherry,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Reset to baseline ($updateCount update${if (updateCount > 1) "s" else ""})",
+                                color = SecondaryDeepCherry,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            }
+
+            Text(
+                text = "Pattern summaries only, not a medical diagnosis.",
+                style = MaterialTheme.typography.labelSmall.copy(color = OnSurfaceVariantMuted),
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
         }
     }
 }
